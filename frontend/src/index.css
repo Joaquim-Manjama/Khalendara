@@ -1,0 +1,48 @@
+@import "tailwindcss";
+@theme {
+  --color-page: #FAFAFA;
+  --color-surface: #FFFFFF;
+  --color-secondary-surface: #F4F4F5;
+  --color-border: #E4E4E7;
+  --color-strong: #D4D4D8;
+  --color-secondary: #71717A;
+  --color-muted: #71717A;
+  --color-body: #3F3F46;
+  --color-heading: #18181B;
+  --color-brand: #7C3AED;
+  --color-brand-hover: #6D28D9;
+  --color-brand-subtle: #F5F3FF;
+  --color-brand-border: #DDD6FE;
+  --font-sans: 'Inter', 'Segoe UI', sans-serif;
+}
+:root { font-family: var(--font-sans); color-scheme: light; font-synthesis: none; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-page: #18181B;
+  --color-surface: #27272A;
+  --color-secondary-surface: #3F3F46;
+  --color-border: #3F3F46;
+  --color-strong: #52525B;
+  --color-muted: #71717A;
+  --color-secondary: #A1A1AA;
+  --color-body: #F4F4F5;
+  --color-heading: #FAFAFA;
+  --color-brand: #8B5CF6;
+  --color-brand-hover: #A78BFA;
+  --color-brand-subtle: #2E1065;
+  --color-brand-border: #52525B;
+}
+body { margin: 0; min-width: 320px; }
+.auth-feedback-error { color: #991B1B; background: #FEF2F2; border-color: #FECACA; }
+.auth-feedback-success { color: #166534; background: #F0FDF4; border-color: #BBF7D0; }
+:root[data-theme="dark"] .auth-feedback-success { color: #BBF7D0; background: #052E16; border-color: #166534; }
+:root[data-theme="dark"] .auth-feedback-error { color: #FECACA; background: #450A0A; border-color: #991B1B; }
+button, a, input { -webkit-tap-highlight-color: transparent; }
+button { cursor: pointer; }
+button, a { touch-action: manipulation; }
+:focus-visible { outline: 3px solid var(--color-brand-border); outline-offset: 3px; }
+.field { width: 100%; height: 48px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); padding: 0 14px; font-size: 14px; color: var(--color-heading); }
+.field.pr-16 { padding-right: 64px; }
+.field::placeholder { color: var(--color-secondary); }
+.field:focus { outline: 3px solid var(--color-brand-subtle); border-color: var(--color-brand); }
+@media (max-width: 640px) { .field { font-size: 16px; } }

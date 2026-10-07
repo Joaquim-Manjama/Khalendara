@@ -1,0 +1,84 @@
+# =========================
+# IntelliJ IDEA
+# =========================
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# =========================
+# VS Code
+# =========================
+.vscode/
+*.code-workspace
+
+# =========================
+# Java / Spring Boot
+# =========================
+target/
+build/
+.gradle/
+*.class
+*.jar
+*.war
+*.ear
+
+# Maven wrapper JAR should usually be committed
+# !.mvn/wrapper/maven-wrapper.jar
+
+# Spring local/config secrets
+application-local.properties
+application-local.yml
+application-local.yaml
+
+# Docker
+docker-compose.yml
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# =========================
+# React / Node
+# =========================
+node_modules/
+dist/
+build/
+coverage/
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Vite
+.vite/
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# Logs
+# =========================
+*.log
+logs/
+
+# =========================
+# Temporary files
+# =========================
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# =========================
+# Codex / AI tools
+# =========================
+.codex/
