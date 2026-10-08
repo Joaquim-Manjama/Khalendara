@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { authenticate } from './auth'
+import { authenticate, getCurrentUser, SessionExpiredError, type UserProfile } from './auth'
+import Home from './Home'
 
 function Mark() {
   return <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="5" stroke="currentColor" strokeWidth="1.8"/><path d="M8 3v5m8-5v5M3 11h18m-13 5h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
@@ -15,11 +16,49 @@ export default function App() {
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#18181B' : '#FAFAFA')
     try { localStorage.setItem('khalendara-theme', theme) } catch { /* Theme still works when storage is unavailable. */ }
   }, [theme])
-  const [visible, setVisible] = useState(false)
   const [notice, setNotice] = useState('')
+  const [error, setError] = useState(false)
+  const [user, setUser] = useState<UserProfile | null>(null)
+  const [sessionLoading, setSessionLoading] = useState(true)
+  const [sessionError, setSessionError] = useState('')
+  const restoreSession = async () => {
+    setSessionLoading(true)
+    setSessionError('')
+    try {
+      const profile = await getCurrentUser(true)
+      setUser(profile)
+      window.history.replaceState(null, '', '/home')
+    } catch (failure) {
+      if (failure instanceof SessionExpiredError) {
+        window.history.replaceState(null, '', '/login')
+        setError(true)
+        setNotice(failure.message)
+      }
+      else setSessionError(failure instanceof Error ? failure.message : 'Unable to load your profile.')
+    } finally { setSessionLoading(false) }
+  }
+  useEffect(() => {
+    let active = true
+    getCurrentUser().then(profile => {
+      if (!active) return
+      setUser(profile)
+      window.history.replaceState(null, '', '/home')
+    }).catch(failure => {
+      if (!active) return
+      if (failure instanceof SessionExpiredError) {
+        window.history.replaceState(null, '', '/login')
+        setError(true)
+        setNotice(failure.message)
+      }
+      else setSessionError(failure instanceof Error ? failure.message : 'Unable to load your profile.')
+    }).finally(() => { if (active) setSessionLoading(false) })
+    return () => { active = false }
+  }, [])
+  const [visible, setVisible] = useState(false)
+
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(false)
+
   const [success, setSuccess] = useState(false)
   const feedbackRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -55,9 +94,15 @@ export default function App() {
     setNotice('')
     setError(false)
     try {
-      const user = await authenticate(mode, payload)
+      await authenticate(mode, payload)
+      if (mode === 'login') {
+        const profile = await getCurrentUser(true)
+        setUser(profile)
+        window.history.pushState(null, '', '/home')
+        return
+      }
       setSuccess(true)
-      setNotice(mode === 'login' ? `Successfully signed in. Welcome back, ${user.firstName}!` : `Account created successfully, ${user.firstName}! You can now sign in.`)
+      setNotice('Account created successfully! You can now sign in.')
       form.reset()
       setVisible(false)
       if (mode === 'register') setMode('login')
@@ -66,6 +111,8 @@ export default function App() {
       setNotice(failure instanceof Error ? failure.message : 'Something went wrong. Please try again.')
     } finally { setLoading(false) }
   }
+  if (sessionLoading || sessionError) return <main className="session-screen"><div className="session-card"><Mark/><h1>{sessionLoading ? 'Making space for your day…' : 'Unable to load your account'}</h1>{sessionError && <><p role="alert">{sessionError}</p><button className="field" onClick={() => void restoreSession()}>Try again</button><button className="field" onClick={() => { setSessionError(''); window.history.replaceState(null, '', '/login') }}>Go to sign in</button></>}</div></main>
+  if (user) return <Home user={user} toggleTheme={() => setTheme(theme === 'light' ? 'dark' : 'light')}/>
   return <div className="flex min-h-svh flex-col bg-page text-body">
     <header className="mx-auto flex w-full max-w-[1440px] items-center justify-between px-6 py-7 sm:px-12 lg:px-20">
       <a href="/" className="flex items-center gap-2.5 text-xl font-bold tracking-tight text-heading"><span className="flex size-10 items-center justify-center rounded-xl bg-brand text-white"><Mark/></span>Khalendara<span className="text-brand">.</span></a>
@@ -99,4 +146,9 @@ export default function App() {
     <footer className="flex flex-wrap justify-center gap-x-5 gap-y-2 px-6 pb-7 text-[11px] text-secondary"><span>© {new Date().getFullYear()} Khalendara</span><span className="h-3 border-l border-strong"/><span>A little space for your everyday.</span></footer>
   </div>
 }
+
+
+
+
+
 

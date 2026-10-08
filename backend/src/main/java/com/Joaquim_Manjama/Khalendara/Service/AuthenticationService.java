@@ -33,7 +33,7 @@ public class AuthenticationService {
         user.setEmail(registerDTO.email());
         user.setPassword(passwordEncoder.encode(registerDTO.password()));
         userRepository.save(user);
-        return convertToDTO(registerDTO);
+        return convertToDTO(user);
     }
 
     public UserDTO login(LoginDTO loginDTO) {
@@ -54,17 +54,10 @@ public class AuthenticationService {
 
     public UserDTO convertToDTO(User user) {
         return new UserDTO(
+                user.getId(),
                 user.getFirstName(),
                 user.getLastName(),
                 user.getEmail()
-        );
-    }
-
-    public UserDTO convertToDTO(RegisterDTO registerDTO) {
-        return new UserDTO(
-                registerDTO.firstName(),
-                registerDTO.lastName(),
-                registerDTO.email()
         );
     }
 }
