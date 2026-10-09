@@ -1,6 +1,4 @@
 package com.Joaquim_Manjama.Khalendara.Exception;
-
-import com.Joaquim_Manjama.Khalendara.Model.Event;
 import org.springframework.http.HttpStatus;
 
 public class EventException extends RuntimeException {

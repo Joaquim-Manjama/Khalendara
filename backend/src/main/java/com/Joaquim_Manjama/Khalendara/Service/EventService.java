@@ -13,7 +13,6 @@ import com.Joaquim_Manjama.Khalendara.Repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.PathVariable;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -105,7 +104,7 @@ public class EventService {
     private User getUser(UserDTO userDTO) {
         Optional<User> optionalUser = userRepository.findById(userDTO.id());
 
-        if (!optionalUser.isPresent()) throw AuthException.UserNotFound();
+        if (optionalUser.isEmpty()) throw AuthException.UserNotFound();
 
         return optionalUser.get();
     }
@@ -122,5 +121,4 @@ public class EventService {
                 event.getEventCategory().toString()
         );
     }
-
 }

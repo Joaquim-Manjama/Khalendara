@@ -1,6 +1,5 @@
 package com.Joaquim_Manjama.Khalendara.Repository;
 
-
 import com.Joaquim_Manjama.Khalendara.Model.Event;
 import org.springframework.data.jpa.repository.JpaRepository;
 
