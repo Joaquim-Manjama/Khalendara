@@ -58,3 +58,71 @@ export async function getCurrentUser(forceRefresh = false): Promise<UserProfile>
   try { sessionStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify({ user, savedAt: Date.now() })) } catch { /* The profile still works without storage. */ }
   return user
 }
+
+export interface EventPayload {
+  title: string; description: string; location: string; date: string
+  startTime: string; endTime: string; eventCategory: string
+}
+export interface EventDTO extends EventPayload { id: string }
+export async function createCalendarEvent(payload: EventPayload): Promise<EventDTO> {
+  const response = await request('/events/create', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+  })
+  const data = await response.json().catch(() => null)
+  if (!isEventDTO(data)) {
+    throw new Error('The server returned an unexpected event response. Check your calendar before retrying.')
+  }
+  return data
+}
+
+const EVENT_CACHE_MAX_AGE = 5 * 60 * 1000
+const eventCacheKey = (userId: string) => `khalendara-api-events-v2-${userId}`
+function isEventDTO(data: unknown): data is EventDTO {
+  if (!data || typeof data !== 'object') return false
+  const event = data as Record<string, unknown>
+  return ['id', 'title', 'description', 'location', 'date', 'startTime', 'endTime', 'eventCategory']
+    .every(key => typeof event[key] === 'string')
+    && /^\d{4}-\d{2}-\d{2}$/.test(String(event.date))
+    && /^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?$/.test(String(event.startTime))
+    && /^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?$/.test(String(event.endTime))
+    && ['PERSONAL', 'WORK', 'FAMILY', 'HEALTH', 'SOCIAL', 'FITNESS'].includes(String(event.eventCategory))
+}
+function readEventCache(userId: string): EventDTO[] | null {
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(eventCacheKey(userId)) || 'null')
+    if (cached && Array.isArray(cached.events) && cached.events.every(isEventDTO)
+        && typeof cached.savedAt === 'number' && cached.savedAt <= Date.now()
+        && Date.now() - cached.savedAt < EVENT_CACHE_MAX_AGE) return cached.events
+  } catch { /* Invalid or unavailable storage falls back to the server. */ }
+  return null
+}
+function cacheEvents(userId: string, events: EventDTO[]) {
+  // Select only event fields; never cache nested user data from entity responses.
+  const safeEvents = events.map(({ id, title, description, location, date, startTime, endTime, eventCategory }) =>
+    ({ id, title, description, location, date, startTime, endTime, eventCategory }))
+  try { sessionStorage.setItem(eventCacheKey(userId), JSON.stringify({ events: safeEvents, savedAt: Date.now() })) }
+  catch { /* Events remain available in memory. */ }
+  return safeEvents
+}
+export function cacheCreatedEvent(userId: string, event: EventDTO) {
+  const cached = readEventCache(userId)
+  if (cached) cacheEvents(userId, [...cached.filter(item => item.id !== event.id), event])
+}
+export async function getCalendarEvents(userId: string, forceRefresh = false): Promise<EventDTO[]> {
+  if (!forceRefresh) {
+    const cached = readEventCache(userId)
+    if (cached) return cached
+  }
+  const response = await request('/events/all', { method: 'GET' })
+  const data: unknown = await response.json().catch(() => null)
+  if (!Array.isArray(data) || !data.every(isEventDTO)) {
+    throw new Error('The server returned an unexpected event list. Please try again.')
+  }
+  return cacheEvents(userId, data)
+}
+
+export async function deleteCalendarEvent(userId: string, eventId: string): Promise<void> {
+  await request(`/events/delete/${encodeURIComponent(eventId)}`, { method: 'DELETE' })
+  const cached = readEventCache(userId)
+  if (cached) cacheEvents(userId, cached.filter(event => event.id !== eventId))
+}

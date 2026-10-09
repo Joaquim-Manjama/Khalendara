@@ -32,4 +32,18 @@ public class AuthException extends RuntimeException {
                         "Incorrect password!"
                 );
     }
+
+    public static AuthException firstNameTooLong() {
+        return new AuthException(
+                HttpStatus.BAD_REQUEST,
+                        "First name is too long!"
+        );
+    }
+
+    public static AuthException lastNameTooLong() {
+        return new AuthException(
+                HttpStatus.BAD_REQUEST,
+                "Last name is too long!"
+        );
+    }
 }

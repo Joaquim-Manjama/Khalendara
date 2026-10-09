@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
+
 @Entity
 @Table(name="users")
 @Getter
@@ -18,15 +20,18 @@ public class User {
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length=100)
     private String firstName;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length=100)
     private String lastName;
 
-    @Column(nullable = false,  unique = true)
+    @Column(nullable = false,  unique = true, length=100)
     private String email;
 
     @Column(nullable = false)
     private String password;
+
+    @OneToMany(mappedBy = "user")
+    private List<Event> events;
 }

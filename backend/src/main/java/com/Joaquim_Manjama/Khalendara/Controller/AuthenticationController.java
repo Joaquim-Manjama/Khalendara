@@ -3,6 +3,7 @@ package com.Joaquim_Manjama.Khalendara.Controller;
 import com.Joaquim_Manjama.Khalendara.DTO.LoginDTO;
 import com.Joaquim_Manjama.Khalendara.DTO.RegisterDTO;
 import com.Joaquim_Manjama.Khalendara.DTO.UserDTO;
+import com.Joaquim_Manjama.Khalendara.Exception.AuthException;
 import com.Joaquim_Manjama.Khalendara.Security.JwtService;
 import com.Joaquim_Manjama.Khalendara.Service.AuthenticationService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +26,11 @@ public class AuthenticationController {
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterDTO registerDTO) {
+
+        if (registerDTO.firstName().length() > 100) throw AuthException.firstNameTooLong();
+
+        if (registerDTO.lastName().length() > 100) throw AuthException.lastNameTooLong();
+
         UserDTO user = authService.register(registerDTO);
         return ResponseEntity.ok().body("Register successful");
     }

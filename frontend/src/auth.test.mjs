@@ -5,7 +5,7 @@ import { test, after } from 'node:test'
 import ts from 'typescript'
 const source = await readFile(new URL('./auth.ts', import.meta.url), 'utf8')
 const { outputText } = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext } })
-const { authenticate, getCurrentUser, SessionExpiredError } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`)
+const { authenticate, getCurrentUser, SessionExpiredError, createCalendarEvent, getCalendarEvents, cacheCreatedEvent, deleteCalendarEvent } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`)
 const originalFetch = globalThis.fetch
 after(() => { globalThis.fetch = originalFetch })
 const user = { id: 'user-123', firstName: 'Test', lastName: 'User', email: 'test@example.com' }
@@ -89,5 +89,84 @@ test('profile cache avoids repeat requests and excludes extra server fields', as
     globalThis.fetch = async () => Response.json({ message: 'Expired' }, { status: 401 })
     await assert.rejects(getCurrentUser(true), SessionExpiredError)
     assert.equal(values.has('khalendara-user'), false)
+  } finally { delete globalThis.sessionStorage }
+})
+
+test('event creation sends the backend contract with authentication cookies', async () => {
+  const payload = { title: 'Lunch', description: 'With friends', location: 'Cafe', date: '2026-10-09',
+    startTime: '12:33', endTime: '13:30', eventCategory: 'SOCIAL' }
+  const saved = { id: 'event-123', ...payload, startTime: '12:33:00', endTime: '13:30:00' }
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, '/events/create')
+    assert.equal(options.method, 'POST')
+    assert.equal(options.credentials, 'include')
+    assert.equal(options.headers['Content-Type'], 'application/json')
+    assert.deepEqual(JSON.parse(options.body), payload)
+    return Response.json(saved)
+  }
+  assert.deepEqual(await createCalendarEvent(payload), saved)
+  globalThis.fetch = async () => Response.json({ message: 'End time must be after start time.' }, { status: 400 })
+  await assert.rejects(createCalendarEvent(payload), { message: 'End time must be after start time.' })
+  for (const invalid of [{}, { ...saved, description: undefined }, { ...saved, startTime: 'invalid' }]) {
+    globalThis.fetch = async () => Response.json(invalid)
+    await assert.rejects(createCalendarEvent(payload), /unexpected event response/)
+  }
+})
+
+test('event list uses GET on cache miss, caches empty lists, and isolates users', async () => {
+  const values = new Map()
+  globalThis.sessionStorage = { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) }
+  const event = { id: 'event-1', title: 'Lunch', description: '', location: '', date: '2026-10-09',
+    startTime: '12:33', endTime: '13:30', eventCategory: 'SOCIAL' }
+  let requests = 0
+  globalThis.fetch = async (url, options) => {
+    requests++
+    assert.equal(url, '/events/all'); assert.equal(options.method, 'GET')
+    assert.equal(options.credentials, 'include')
+    return Response.json([])
+  }
+  try {
+    assert.deepEqual(await getCalendarEvents('one'), [])
+    assert.deepEqual(await getCalendarEvents('one'), [])
+    assert.equal(requests, 1)
+    cacheCreatedEvent('one', event)
+    assert.deepEqual(await getCalendarEvents('one'), [event])
+    await getCalendarEvents('two'); assert.equal(requests, 2)
+    values.set('khalendara-api-events-v2-one', 'invalid')
+    await getCalendarEvents('one'); assert.equal(requests, 3)
+    values.set('khalendara-api-events-v2-one', JSON.stringify({ events: [], savedAt: Date.now() - 360000 }))
+    await getCalendarEvents('one'); assert.equal(requests, 4)
+    globalThis.fetch = async () => Response.json([{ ...event, user: { password: 'private' } }])
+    assert.deepEqual(await getCalendarEvents('one', true), [event])
+    assert.equal(values.get('khalendara-api-events-v2-one').includes('private'), false)
+    globalThis.fetch = async () => Response.json({}, { status: 405 })
+    await assert.rejects(getCalendarEvents('one', true))
+    globalThis.fetch = async () => Response.json([{ ...event, startTime: 'invalid' }])
+    await assert.rejects(getCalendarEvents('one', true), /unexpected event list/)
+  } finally { delete globalThis.sessionStorage }
+})
+
+test('deletion sends DELETE and updates the cache only on success', async () => {
+  const values = new Map()
+  globalThis.sessionStorage = { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) }
+  const event = { id: 'event/1', title: 'Lunch', description: '', location: '', date: '2026-10-09',
+    startTime: '12:33', endTime: '13:30', eventCategory: 'SOCIAL' }
+  try {
+    globalThis.fetch = async () => Response.json([event])
+    await getCalendarEvents('delete-user')
+    globalThis.fetch = async () => Response.json({ message: 'Event not found' }, { status: 404 })
+    await assert.rejects(deleteCalendarEvent('delete-user', event.id), { message: 'Event not found' })
+    assert.deepEqual(await getCalendarEvents('delete-user'), [event])
+    for (const response of [Response.json(event), new Response(null, { status: 204 })]) {
+      cacheCreatedEvent('delete-user', event)
+      globalThis.fetch = async (url, options) => {
+        assert.equal(url, '/events/delete/event%2F1')
+        assert.equal(options.method, 'DELETE')
+        assert.equal(options.credentials, 'include')
+        return response
+      }
+      await deleteCalendarEvent('delete-user', event.id)
+      assert.deepEqual(await getCalendarEvents('delete-user'), [])
+    }
   } finally { delete globalThis.sessionStorage }
 })
