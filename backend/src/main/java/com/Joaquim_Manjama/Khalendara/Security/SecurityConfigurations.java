@@ -22,6 +22,8 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -65,7 +67,8 @@ public class SecurityConfigurations {
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            UserRepository users
+            UserRepository users,
+            UrlBasedCorsConfigurationSource corsSource
     ) throws Exception {
 
         return http
@@ -82,6 +85,7 @@ public class SecurityConfigurations {
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
+                .cors(cors -> cors.configurationSource(corsSource))
                 .csrf(AbstractHttpConfigurer::disable)
                 .oauth2ResourceServer(oauth -> oauth
                         .bearerTokenResolver(request -> {
@@ -123,6 +127,26 @@ public class SecurityConfigurations {
                         )
                 )
                 .build();
+    }
+
+    @Bean
+    public UrlBasedCorsConfigurationSource corsConfigurationSource(
+            @Value("${app.frontend-origin}") String frontendOrigin) {
+
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of(frontendOrigin));
+        config.setAllowedMethods(
+                List.of("GET", "POST", "DELETE", "OPTIONS")
+        );
+        config.setAllowedHeaders(List.of("Content-Type"));
+        config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 }
 

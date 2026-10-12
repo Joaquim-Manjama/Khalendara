@@ -27,11 +27,6 @@ build/
 # Maven wrapper JAR should usually be committed
 # !.mvn/wrapper/maven-wrapper.jar
 
-# Spring local/config secrets
-application-local.properties
-application-local.yml
-application-local.yaml
-
 # Docker
 docker-compose.yml
 
@@ -39,6 +34,7 @@ docker-compose.yml
 .env
 .env.*
 !.env.example
+.env.example
 
 # =========================
 # React / Node

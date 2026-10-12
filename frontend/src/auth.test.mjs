@@ -170,3 +170,26 @@ test('deletion sends DELETE and updates the cache only on success', async () => 
     }
   } finally { delete globalThis.sessionStorage }
 })
+
+test('configured backend URL applies to authentication, profiles and events', async () => {
+  const configuredSource = source.replace('import.meta.env?.VITE_BACKEND_URL', JSON.stringify(' https://api.example.com/api/ '))
+  const { outputText: configuredOutput } = ts.transpileModule(configuredSource, { compilerOptions: { module: ts.ModuleKind.ESNext } })
+  const api = await import(`data:text/javascript;base64,${Buffer.from(configuredOutput).toString('base64')}`)
+  const payload = { title: 'Lunch', description: '', location: '', date: '2026-10-09', startTime: '12:00', endTime: '13:00', eventCategory: 'SOCIAL' }
+  const saved = { id: 'event-1', ...payload }
+  const requests = []
+  globalThis.fetch = async (url, options) => {
+    requests.push(url)
+    assert.equal(options.credentials, 'include')
+    if (url.endsWith('/users/me')) return Response.json(user)
+    if (url.endsWith('/events/all')) return Response.json([saved])
+    if (url.endsWith('/events/create')) return Response.json(saved)
+    return new Response(null, { status: 204 })
+  }
+  await api.authenticate('login', {})
+  await api.getCurrentUser(true)
+  await api.createCalendarEvent(payload)
+  await api.getCalendarEvents(user.id, true)
+  await api.deleteCalendarEvent(user.id, saved.id)
+  assert.deepEqual(requests, ['/auth/login', '/users/me', '/events/create', '/events/all', '/events/delete/event-1'].map(path => `https://api.example.com/api${path}`))
+})

@@ -5,6 +5,7 @@ export interface UserProfile {
   email: string
 }
 export class SessionExpiredError extends Error {}
+const BACKEND_URL = (import.meta.env?.VITE_BACKEND_URL ?? '').trim().replace(/\/+$/, '')
 const PROFILE_CACHE_KEY = 'khalendara-user'
 const PROFILE_CACHE_MAX_AGE = 5 * 60 * 1000
 function isUserProfile(data: unknown): data is UserProfile {
@@ -24,7 +25,7 @@ function readCachedUser(): UserProfile | null {
 async function request(path: string, options: RequestInit = {}) {
   let response: Response
   try {
-    response = await fetch(path, { ...options, credentials: 'include', signal: AbortSignal.timeout(15000) })
+    response = await fetch(`${BACKEND_URL}${path}`, { ...options, credentials: 'include', signal: AbortSignal.timeout(15000) })
   } catch { throw new Error('Unable to reach the server. Please try again shortly.') }
   if (!response.ok) {
     const body = await response.text()
