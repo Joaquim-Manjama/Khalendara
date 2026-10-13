@@ -31,8 +31,8 @@ export default function App() {
     } catch (failure) {
       if (failure instanceof SessionExpiredError) {
         window.history.replaceState(null, '', '/login')
-        setError(true)
-        setNotice(failure.message)
+        setError(false)
+        setNotice('')
       }
       else setSessionError(failure instanceof Error ? failure.message : 'Unable to load your profile.')
     } finally { setSessionLoading(false) }
@@ -47,8 +47,8 @@ export default function App() {
       if (!active) return
       if (failure instanceof SessionExpiredError) {
         window.history.replaceState(null, '', '/login')
-        setError(true)
-        setNotice(failure.message)
+        setError(false)
+        setNotice('')
       }
       else setSessionError(failure instanceof Error ? failure.message : 'Unable to load your profile.')
     }).finally(() => { if (active) setSessionLoading(false) })

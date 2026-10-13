@@ -18,21 +18,27 @@ public class EventController {
     @Autowired
     private EventService eventService;
 
-    @PostMapping("/create")
+    @PostMapping()
     public ResponseEntity<?> createEvent(@AuthenticationPrincipal UserDTO userDTO, @RequestBody EventRequestDTO eventRequestDTO) {
         EventDTO event = eventService.createEvent(userDTO, eventRequestDTO);
         return ResponseEntity.ok(event);
     }
 
-    @GetMapping("/all")
+    @GetMapping()
     public ResponseEntity<?> getEvent(@AuthenticationPrincipal UserDTO userDTO) {
         List<EventDTO> events = eventService.getAll(userDTO);
         return ResponseEntity.ok(events);
     }
 
-    @DeleteMapping("/delete/{id}")
+    @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteEvent(@AuthenticationPrincipal UserDTO userDTO, @PathVariable String id) {
         EventDTO event = eventService.deleteEvent(userDTO, id);
+        return ResponseEntity.ok(event);
+    }
+
+    @PostMapping("/{id}")
+    public ResponseEntity<?> updateEvent(@AuthenticationPrincipal UserDTO userDTO, @PathVariable String id, @RequestBody EventRequestDTO eventRequestDTO) {
+        EventDTO event = eventService.updateEvent(userDTO, id, eventRequestDTO);
         return ResponseEntity.ok(event);
     }
 }

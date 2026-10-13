@@ -66,7 +66,7 @@ export interface EventPayload {
 }
 export interface EventDTO extends EventPayload { id: string }
 export async function createCalendarEvent(payload: EventPayload): Promise<EventDTO> {
-  const response = await request('/events/create', {
+  const response = await request('/events', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
   })
   const data = await response.json().catch(() => null)
@@ -114,7 +114,7 @@ export async function getCalendarEvents(userId: string, forceRefresh = false): P
     const cached = readEventCache(userId)
     if (cached) return cached
   }
-  const response = await request('/events/all', { method: 'GET' })
+  const response = await request('/events', { method: 'GET' })
   const data: unknown = await response.json().catch(() => null)
   if (!Array.isArray(data) || !data.every(isEventDTO)) {
     throw new Error('The server returned an unexpected event list. Please try again.')
@@ -123,7 +123,19 @@ export async function getCalendarEvents(userId: string, forceRefresh = false): P
 }
 
 export async function deleteCalendarEvent(userId: string, eventId: string): Promise<void> {
-  await request(`/events/delete/${encodeURIComponent(eventId)}`, { method: 'DELETE' })
+  await request(`/events/${encodeURIComponent(eventId)}`, { method: 'DELETE' })
   const cached = readEventCache(userId)
   if (cached) cacheEvents(userId, cached.filter(event => event.id !== eventId))
+}
+
+export async function updateCalendarEvent(userId: string, eventId: string, payload: EventPayload): Promise<EventDTO> {
+  const response = await request(`/events/${encodeURIComponent(eventId)}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+  })
+  const data: unknown = await response.json().catch(() => null)
+  if (!isEventDTO(data) || data.id !== eventId) {
+    throw new Error('The server returned an unexpected event response. Refresh your calendar before retrying.')
+  }
+  cacheCreatedEvent(userId, data)
+  return data
 }

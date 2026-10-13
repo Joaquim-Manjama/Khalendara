@@ -11,9 +11,11 @@ import com.Joaquim_Manjama.Khalendara.Model.User;
 import com.Joaquim_Manjama.Khalendara.Repository.EventRepository;
 import com.Joaquim_Manjama.Khalendara.Repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.swing.text.html.Option;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -27,6 +29,25 @@ public class EventService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Transactional
+    public EventDTO updateEvent(UserDTO userDTO, String id, EventRequestDTO eventRequestDTO) {
+        User user = getUser(userDTO);
+        Optional<Event> optionalEvent = eventRepository.findByIdAndUserId(id, user.getId());
+
+        if (optionalEvent.isPresent()) {
+            Event oldEvent = optionalEvent.get();
+            Event newEvent = convertToEvent(eventRequestDTO);
+            newEvent.setId(oldEvent.getId());
+            newEvent.setUser(oldEvent.getUser());
+
+            eventRepository.save(newEvent);
+
+            return convertToDTO(newEvent);
+        }
+
+        throw EventException.EventNotFound();
+    }
 
     @Transactional
     public EventDTO deleteEvent(UserDTO userDTO, String id) {
@@ -54,7 +75,37 @@ public class EventService {
     public EventDTO createEvent(UserDTO userDTO, EventRequestDTO eventRequestDTO) {
 
         User user = getUser(userDTO);
+        Event event = convertToEvent(eventRequestDTO);
 
+        event.setUser(user);
+        user.getEvents().add(event);
+
+        return convertToDTO(eventRepository.save(event));
+    }
+
+    private User getUser(UserDTO userDTO) {
+        Optional<User> optionalUser = userRepository.findById(userDTO.id());
+
+        if (optionalUser.isEmpty()) throw AuthException.UserNotFound();
+
+        return optionalUser.get();
+    }
+
+    private EventDTO convertToDTO(Event event) {
+        return new EventDTO(
+                event.getId(),
+                event.getTitle(),
+                event.getDescription(),
+                event.getLocation(),
+                event.getDate().toString(),
+                event.getStartTime().toString(),
+                event.getEndTime().toString(),
+                event.getEventCategory().toString()
+        );
+    }
+
+    private int[] getDateAndTime(EventRequestDTO eventRequestDTO) {
+        int[] dateAndTime = new int[7];
         try {
             String[] date = eventRequestDTO.date().split("-");
             int year = Integer.parseInt(eventRequestDTO.date().split("-")[0]);
@@ -80,45 +131,42 @@ public class EventService {
             if (!LocalTime.of(endHour, endMinute).isAfter(LocalTime.of(startHour, startMinute)))
                 throw EventException.TimeNotRight();
 
-            Event event = new Event();
-            event.setTitle(eventRequestDTO.title());
-            event.setDescription(eventRequestDTO.description());
-            event.setLocation(eventRequestDTO.location());
-            event.setDate(LocalDate.of(year, month, day));
-            event.setStartTime(LocalTime.of(startHour, startMinute));
-            event.setEndTime(LocalTime.of(endHour, endMinute));
-            event.setEventCategory(EventCategory.valueOf(eventRequestDTO.eventCategory()));
-
-            event.setUser(user);
-            user.getEvents().add(event);
-
-            return convertToDTO(eventRepository.save(event));
+            dateAndTime[0] = year;
+            dateAndTime[1] = month;
+            dateAndTime[2] = day;
+            dateAndTime[3] = startHour;
+            dateAndTime[4] = startMinute;
+            dateAndTime[5] = endHour;
+            dateAndTime[6] = endMinute;
 
         } catch (EventException e) {
             throw e;
         } catch (IllegalArgumentException | java.time.DateTimeException | IndexOutOfBoundsException | NullPointerException e) {
             throw EventException.IncorectDateOrTimeFormat();
         }
+
+        return dateAndTime;
     }
 
-    private User getUser(UserDTO userDTO) {
-        Optional<User> optionalUser = userRepository.findById(userDTO.id());
+    private Event convertToEvent(EventRequestDTO eventRequestDTO) {
+        int[] dateAndTime = getDateAndTime(eventRequestDTO);
+        int year = dateAndTime[0];
+        int month = dateAndTime[1];
+        int day = dateAndTime[2];
+        int startHour = dateAndTime[3];
+        int startMinute = dateAndTime[4];
+        int endHour = dateAndTime[5];
+        int endMinute = dateAndTime[6];
 
-        if (optionalUser.isEmpty()) throw AuthException.UserNotFound();
+        Event event = new Event();
+        event.setTitle(eventRequestDTO.title());
+        event.setDescription(eventRequestDTO.description());
+        event.setLocation(eventRequestDTO.location());
+        event.setDate(LocalDate.of(year, month, day));
+        event.setStartTime(LocalTime.of(startHour, startMinute));
+        event.setEndTime(LocalTime.of(endHour, endMinute));
+        event.setEventCategory(EventCategory.valueOf(eventRequestDTO.eventCategory()));
 
-        return optionalUser.get();
-    }
-
-    private EventDTO convertToDTO(Event event) {
-        return new EventDTO(
-                event.getId(),
-                event.getTitle(),
-                event.getDescription(),
-                event.getLocation(),
-                event.getDate().toString(),
-                event.getStartTime().toString(),
-                event.getEndTime().toString(),
-                event.getEventCategory().toString()
-        );
+        return event;
     }
 }

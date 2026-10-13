@@ -1,4 +1,5 @@
 /auth/* https://khalendara.onrender.com/auth/:splat 200
 /users/* https://khalendara.onrender.com/users/:splat 200
+/events https://khalendara.onrender.com/events 200
 /events/* https://khalendara.onrender.com/events/:splat 200
 /* /index.html 200

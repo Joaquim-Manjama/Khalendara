@@ -5,7 +5,7 @@ import { test, after } from 'node:test'
 import ts from 'typescript'
 const source = await readFile(new URL('./auth.ts', import.meta.url), 'utf8')
 const { outputText } = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext } })
-const { authenticate, getCurrentUser, SessionExpiredError, createCalendarEvent, getCalendarEvents, cacheCreatedEvent, deleteCalendarEvent } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`)
+const { authenticate, getCurrentUser, SessionExpiredError, createCalendarEvent, getCalendarEvents, cacheCreatedEvent, deleteCalendarEvent, updateCalendarEvent } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`)
 const originalFetch = globalThis.fetch
 after(() => { globalThis.fetch = originalFetch })
 const user = { id: 'user-123', firstName: 'Test', lastName: 'User', email: 'test@example.com' }
@@ -97,7 +97,7 @@ test('event creation sends the backend contract with authentication cookies', as
     startTime: '12:33', endTime: '13:30', eventCategory: 'SOCIAL' }
   const saved = { id: 'event-123', ...payload, startTime: '12:33:00', endTime: '13:30:00' }
   globalThis.fetch = async (url, options) => {
-    assert.equal(url, '/events/create')
+    assert.equal(url, '/events')
     assert.equal(options.method, 'POST')
     assert.equal(options.credentials, 'include')
     assert.equal(options.headers['Content-Type'], 'application/json')
@@ -121,7 +121,7 @@ test('event list uses GET on cache miss, caches empty lists, and isolates users'
   let requests = 0
   globalThis.fetch = async (url, options) => {
     requests++
-    assert.equal(url, '/events/all'); assert.equal(options.method, 'GET')
+    assert.equal(url, '/events'); assert.equal(options.method, 'GET')
     assert.equal(options.credentials, 'include')
     return Response.json([])
   }
@@ -160,7 +160,7 @@ test('deletion sends DELETE and updates the cache only on success', async () => 
     for (const response of [Response.json(event), new Response(null, { status: 204 })]) {
       cacheCreatedEvent('delete-user', event)
       globalThis.fetch = async (url, options) => {
-        assert.equal(url, '/events/delete/event%2F1')
+        assert.equal(url, '/events/event%2F1')
         assert.equal(options.method, 'DELETE')
         assert.equal(options.credentials, 'include')
         return response
@@ -182,8 +182,8 @@ test('configured backend URL applies to authentication, profiles and events', as
     requests.push(url)
     assert.equal(options.credentials, 'include')
     if (url.endsWith('/users/me')) return Response.json(user)
-    if (url.endsWith('/events/all')) return Response.json([saved])
-    if (url.endsWith('/events/create')) return Response.json(saved)
+    if (url.endsWith('/events') && options.method === 'GET') return Response.json([saved])
+    if (url.endsWith('/events') && options.method === 'POST') return Response.json(saved)
     return new Response(null, { status: 204 })
   }
   await api.authenticate('login', {})
@@ -191,5 +191,29 @@ test('configured backend URL applies to authentication, profiles and events', as
   await api.createCalendarEvent(payload)
   await api.getCalendarEvents(user.id, true)
   await api.deleteCalendarEvent(user.id, saved.id)
-  assert.deepEqual(requests, ['/auth/login', '/users/me', '/events/create', '/events/all', '/events/delete/event-1'].map(path => `https://api.example.com/api${path}`))
+  assert.deepEqual(requests, ['/auth/login', '/users/me', '/events', '/events', '/events/event-1'].map(path => `https://api.example.com/api${path}`))
+})
+
+test('updating an event posts all fields and replaces its cached entry only on success', async () => {
+  const values = new Map()
+  globalThis.sessionStorage = { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) }
+  const original = { id: 'event-1', title: 'Lunch', description: '', location: '', date: '2026-10-13', startTime: '12:00', endTime: '13:00', eventCategory: 'SOCIAL' }
+  const { id, ...payload } = { ...original, title: 'Updated lunch', startTime: '12:33' }
+  try {
+    globalThis.fetch = async () => Response.json([original])
+    await getCalendarEvents('update-user')
+    globalThis.fetch = async () => Response.json({ message: 'Event not found' }, { status: 404 })
+    await assert.rejects(updateCalendarEvent('update-user', id, payload), { message: 'Event not found' })
+    assert.deepEqual(await getCalendarEvents('update-user'), [original])
+    globalThis.fetch = async (url, options) => {
+      assert.equal(url, '/events/event-1'); assert.equal(options.method, 'POST')
+      assert.equal(options.credentials, 'include')
+      assert.deepEqual(JSON.parse(options.body), payload)
+      return Response.json({ id, ...payload })
+    }
+    assert.deepEqual(await updateCalendarEvent('update-user', id, payload), { id, ...payload })
+    assert.deepEqual(await getCalendarEvents('update-user'), [{ id, ...payload }])
+    globalThis.fetch = async () => Response.json({ ...original, id: 'wrong-id' })
+    await assert.rejects(updateCalendarEvent('update-user', id, payload), /unexpected event response/)
+  } finally { delete globalThis.sessionStorage }
 })
