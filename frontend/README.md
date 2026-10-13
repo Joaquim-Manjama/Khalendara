@@ -91,3 +91,11 @@ export default defineConfig([
 ])
 
 ```
+
+## Installing on a phone
+
+The production build includes the PWA manifest, icons and a versioned service worker. Deploy `dist` on HTTPS. Android/Chromium users can use the Install app button when the browser offers installation; iPhone/iPad users can use Safari's Share → Add to Home Screen. The button also shows manual instructions.
+
+Only static app files are precached. API responses and mutations are never cached by the service worker. After an online visit, the shell can open offline; loading and saving events still require connectivity. Service-worker updates activate after existing app tabs/windows close, avoiding a forced reload during editing. Close and reopen the app after an update.
+
+Run `npm run build` then `node --test pwa/pwa.test.mjs` to verify the generated PWA files and network/offline routing. Phone installation, safe areas and keyboard behaviour require real-device verification.
