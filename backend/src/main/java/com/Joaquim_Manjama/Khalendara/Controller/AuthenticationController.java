@@ -47,7 +47,7 @@ public class AuthenticationController {
                 .secure(true)
                 .sameSite("Lax")
                 .path("/")
-                .maxAge(Duration.ofHours(1))
+                .maxAge(Duration.ofHours(720))
                 .build();
 
         return ResponseEntity.ok().header(
