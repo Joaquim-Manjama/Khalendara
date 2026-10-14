@@ -13,3 +13,12 @@
 .event-details-secondary-actions{display:flex;gap:8px}
 
 .event-card{touch-action:none;user-select:none;cursor:grab;container-type:normal}.event-card-gesturing{z-index:4;cursor:grabbing;box-shadow:0 4px 18px #0003;outline:1px solid var(--event-color)}.event-resize-handle{position:absolute;left:0;right:0;height:8px;cursor:ns-resize;z-index:1}.event-resize-start{top:0}.event-resize-end{bottom:0}.event-resize-handle::after{content:"";position:absolute;left:calc(50% - 12px);width:24px;height:2px;border-radius:2px;background:var(--event-color);opacity:.45;top:3px}.event-card-tiny .event-resize-handle{height:5px}.event-card-tiny .event-resize-handle::after{top:1px}.event-card-gesturing .event-resize-handle::after{opacity:1}.day-column{isolation:auto}
+
+.all-day-row{display:grid;grid-template-columns:65px repeat(7,minmax(0,1fr));border-bottom:1px solid var(--color-border)}
+.all-day-label{padding:14px 4px;text-align:center;font-size:10px;color:var(--color-secondary)}
+.all-day-cell{display:flex;flex-direction:column;gap:5px;padding:8px 5px;min-width:0;border-left:1px solid var(--color-border)}
+.all-day-event{width:100%;text-align:left;white-space:normal;overflow-wrap:anywhere;border:1px solid color-mix(in srgb,var(--event-color) 25%,transparent);border-left:3px solid var(--event-color);border-radius:6px;background:color-mix(in srgb,var(--event-color) 12%,var(--color-surface));color:var(--color-heading);padding:7px;font-size:11px;line-height:1.4;cursor:pointer}
+.all-day-event:focus-visible{outline:2px solid var(--event-color);outline-offset:2px}
+.event-modal .all-day-checkbox{display:flex;align-items:center;gap:9px;cursor:pointer}
+.all-day-checkbox input{width:16px;height:16px;accent-color:var(--color-brand)}
+.event-times[hidden]{display:none}

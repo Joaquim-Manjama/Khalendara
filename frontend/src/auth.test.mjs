@@ -132,13 +132,13 @@ test('event list uses GET on cache miss, caches empty lists, and isolates users'
     cacheCreatedEvent('one', event)
     assert.deepEqual(await getCalendarEvents('one'), [event])
     await getCalendarEvents('two'); assert.equal(requests, 2)
-    values.set('khalendara-api-events-v2-one', 'invalid')
+    values.set('khalendara-api-events-v3-one', 'invalid')
     await getCalendarEvents('one'); assert.equal(requests, 3)
-    values.set('khalendara-api-events-v2-one', JSON.stringify({ events: [], savedAt: Date.now() - 360000 }))
+    values.set('khalendara-api-events-v3-one', JSON.stringify({ events: [], savedAt: Date.now() - 360000 }))
     await getCalendarEvents('one'); assert.equal(requests, 4)
     globalThis.fetch = async () => Response.json([{ ...event, user: { password: 'private' } }])
     assert.deepEqual(await getCalendarEvents('one', true), [event])
-    assert.equal(values.get('khalendara-api-events-v2-one').includes('private'), false)
+    assert.equal(values.get('khalendara-api-events-v3-one').includes('private'), false)
     globalThis.fetch = async () => Response.json({}, { status: 405 })
     await assert.rejects(getCalendarEvents('one', true))
     globalThis.fetch = async () => Response.json([{ ...event, startTime: 'invalid' }])
@@ -216,4 +216,16 @@ test('updating an event posts all fields and replaces its cached entry only on s
     globalThis.fetch = async () => Response.json({ ...original, id: 'wrong-id' })
     await assert.rejects(updateCalendarEvent('update-user', id, payload), /unexpected event response/)
   } finally { delete globalThis.sessionStorage }
+})
+
+test('all-day events accept null times and preserve their flag on save', async () => {
+  const payload = { title: 'Holiday', description: '', location: '', date: '2026-10-14', startTime: null, endTime: null, allDay: true, eventCategory: 'PERSONAL' }
+  globalThis.fetch = async (_url, options) => {
+    assert.deepEqual(JSON.parse(options.body), payload)
+    return Response.json({ id: 'all-day-1', ...payload })
+  }
+  const saved = await createCalendarEvent(payload)
+  assert.equal(saved.allDay, true)
+  assert.equal(saved.startTime, null)
+  assert.equal(saved.endTime, null)
 })

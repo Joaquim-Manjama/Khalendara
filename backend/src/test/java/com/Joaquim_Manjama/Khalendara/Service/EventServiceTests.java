@@ -46,21 +46,41 @@ class EventServiceTests {
             assertTrue(user.getEvents().contains(event));
             event.setId("event-1"); return event;
         });
-        EventDTO result = service.createEvent(principal, new EventRequestDTO("Lunch", "With friends", "Cafe", "2026-10-12", "12:33", "13:30", "SOCIAL"));
-        assertEquals(new EventDTO("event-1", "Lunch", "With friends", "Cafe", "2026-10-12", "12:33", "13:30", "SOCIAL"), result);
+        EventDTO result = service.createEvent(principal, new EventRequestDTO("Lunch", "With friends", "Cafe", "2026-10-12", "12:33", "13:30", false, "SOCIAL"));
+        assertEquals(new EventDTO("event-1", "Lunch", "With friends", "Cafe", "2026-10-12", "12:33", "13:30", false, "SOCIAL"), result);
         verify(events).save(any(Event.class));
+    }
+
+    @Test
+    void allDayEventsHaveNoTimesAndCanBecomeTimedEvents() {
+        when(events.save(any(Event.class))).thenAnswer(call -> {
+            Event event = call.getArgument(0); event.setId("event-1"); return event;
+        });
+        EventDTO created = service.createEvent(principal, new EventRequestDTO("Holiday", "", "", "2026-10-12", null, null, true, "PERSONAL"));
+        assertTrue(created.allDay());
+        assertNull(created.startTime());
+        assertNull(created.endTime());
+        Event existing = sampleEvent(); existing.setAllDay(true); existing.setStartTime(null); existing.setEndTime(null);
+        when(events.findByIdAndUserId(existing.getId(), principal.id())).thenReturn(Optional.of(existing));
+        EventDTO updated = service.updateEvent(principal, existing.getId(), new EventRequestDTO("Lunch", "", "", "2026-10-12", "12:00", "13:00", false, "SOCIAL"));
+        assertFalse(updated.allDay());
+        assertEquals("12:00", updated.startTime());
+        EventDTO allDay = service.updateEvent(principal, existing.getId(), new EventRequestDTO("Holiday", "", "", "2026-10-12", "bad", "bad", true, "PERSONAL"));
+        assertTrue(allDay.allDay());
+        assertNull(allDay.startTime());
+        assertNull(allDay.endTime());
     }
 
     @Test
     void invalidEventsAreRejectedWithoutSaving() {
         List<EventRequestDTO> invalid = List.of(
-            new EventRequestDTO(" ", "", "", "2026-10-12", "09:00", "10:00", "WORK"),
-            new EventRequestDTO("x".repeat(101), "", "", "2026-10-12", "09:00", "10:00", "WORK"),
-            new EventRequestDTO("Work", "", "", "2026-02-30", "09:00", "10:00", "WORK"),
-            new EventRequestDTO("Work", "", "", "2026-10-12", "25:00", "26:00", "WORK"),
-            new EventRequestDTO("Work", "", "", "2026-10-12", "10:00", "09:00", "WORK"),
-            new EventRequestDTO("Work", "", "", "2026-10-12", "09:00", "09:00", "WORK"),
-            new EventRequestDTO("Work", "", "", "2026-10-12", "09:00", "10:00", "UNKNOWN")
+            new EventRequestDTO(" ", "", "", "2026-10-12", "09:00", "10:00", false, "WORK"),
+            new EventRequestDTO("x".repeat(101), "", "", "2026-10-12", "09:00", "10:00", false, "WORK"),
+            new EventRequestDTO("Work", "", "", "2026-02-30", "09:00", "10:00", false, "WORK"),
+            new EventRequestDTO("Work", "", "", "2026-10-12", "25:00", "26:00", false, "WORK"),
+            new EventRequestDTO("Work", "", "", "2026-10-12", "10:00", "09:00", false, "WORK"),
+            new EventRequestDTO("Work", "", "", "2026-10-12", "09:00", "09:00", false, "WORK"),
+            new EventRequestDTO("Work", "", "", "2026-10-12", "09:00", "10:00", false, "UNKNOWN")
         );
         for (EventRequestDTO request : invalid) {
             assertThrows(EventException.class, () -> service.createEvent(principal, request), request.toString());

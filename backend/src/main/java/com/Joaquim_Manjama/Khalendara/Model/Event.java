@@ -33,6 +33,9 @@ public class Event {
 
     private LocalDate date;
 
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean allDay;
+
     private LocalTime startTime;
 
     private LocalTime endTime;

@@ -62,7 +62,7 @@ export async function getCurrentUser(forceRefresh = false): Promise<UserProfile>
 
 export interface EventPayload {
   title: string; description: string; location: string; date: string
-  startTime: string; endTime: string; eventCategory: string
+  startTime: string | null; endTime: string | null; allDay?: boolean; eventCategory: string
 }
 export interface EventDTO extends EventPayload { id: string }
 export async function createCalendarEvent(payload: EventPayload): Promise<EventDTO> {
@@ -77,15 +77,19 @@ export async function createCalendarEvent(payload: EventPayload): Promise<EventD
 }
 
 const EVENT_CACHE_MAX_AGE = 5 * 60 * 1000
-const eventCacheKey = (userId: string) => `khalendara-api-events-v2-${userId}`
+const eventCacheKey = (userId: string) => `khalendara-api-events-v3-${userId}`
 function isEventDTO(data: unknown): data is EventDTO {
   if (!data || typeof data !== 'object') return false
   const event = data as Record<string, unknown>
-  return ['id', 'title', 'description', 'location', 'date', 'startTime', 'endTime', 'eventCategory']
+  return ['id', 'title', 'description', 'location', 'date', 'eventCategory']
     .every(key => typeof event[key] === 'string')
     && /^\d{4}-\d{2}-\d{2}$/.test(String(event.date))
-    && /^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?$/.test(String(event.startTime))
-    && /^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?$/.test(String(event.endTime))
+    && (event.allDay === undefined || typeof event.allDay === 'boolean')
+    && (event.allDay === true
+      ? event.startTime === null && event.endTime === null
+      : typeof event.startTime === 'string' && typeof event.endTime === 'string'
+        && /^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?$/.test(event.startTime)
+        && /^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?$/.test(event.endTime))
     && ['PERSONAL', 'WORK', 'FAMILY', 'HEALTH', 'SOCIAL', 'FITNESS'].includes(String(event.eventCategory))
 }
 function readEventCache(userId: string): EventDTO[] | null {
@@ -99,8 +103,8 @@ function readEventCache(userId: string): EventDTO[] | null {
 }
 function cacheEvents(userId: string, events: EventDTO[]) {
   // Select only event fields; never cache nested user data from entity responses.
-  const safeEvents = events.map(({ id, title, description, location, date, startTime, endTime, eventCategory }) =>
-    ({ id, title, description, location, date, startTime, endTime, eventCategory }))
+  const safeEvents = events.map(({ id, title, description, location, date, startTime, endTime, allDay, eventCategory }) =>
+    ({ id, title, description, location, date, startTime, endTime, ...(allDay === undefined ? {} : { allDay }), eventCategory }))
   try { sessionStorage.setItem(eventCacheKey(userId), JSON.stringify({ events: safeEvents, savedAt: Date.now() })) }
   catch { /* Events remain available in memory. */ }
   return safeEvents

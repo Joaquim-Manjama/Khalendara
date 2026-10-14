@@ -7,6 +7,7 @@ public record EventRequestDTO(
         String date,
         String startTime,
         String endTime,
+        boolean allDay,
         String eventCategory
 ) {
 }

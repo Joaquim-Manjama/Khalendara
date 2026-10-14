@@ -11,11 +11,9 @@ import com.Joaquim_Manjama.Khalendara.Model.User;
 import com.Joaquim_Manjama.Khalendara.Repository.EventRepository;
 import com.Joaquim_Manjama.Khalendara.Repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.swing.text.html.Option;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -98,8 +96,9 @@ public class EventService {
                 event.getDescription(),
                 event.getLocation(),
                 event.getDate().toString(),
-                event.getStartTime().toString(),
-                event.getEndTime().toString(),
+                event.getStartTime() == null ? null : event.getStartTime().toString(),
+                event.getEndTime() == null ? null : event.getEndTime().toString(),
+                event.isAllDay(),
                 event.getEventCategory().toString()
         );
     }
@@ -107,18 +106,9 @@ public class EventService {
     private int[] getDateAndTime(EventRequestDTO eventRequestDTO) {
         int[] dateAndTime = new int[7];
         try {
-            String[] date = eventRequestDTO.date().split("-");
             int year = Integer.parseInt(eventRequestDTO.date().split("-")[0]);
             int month = Integer.parseInt(eventRequestDTO.date().split("-")[1]);
             int day = Integer.parseInt(eventRequestDTO.date().split("-")[2]);
-
-            String[] startTime = eventRequestDTO.startTime().split(":");
-            int startHour = Integer.parseInt(startTime[0]);
-            int startMinute = Integer.parseInt(startTime[1]);
-
-            String[] endTime = eventRequestDTO.endTime().split(":");
-            int endHour = Integer.parseInt(endTime[0]);
-            int endMinute = Integer.parseInt(endTime[1]);
 
             if (eventRequestDTO.title() == null || eventRequestDTO.title().isBlank())
                 throw EventException.MissingTitle();
@@ -128,16 +118,27 @@ public class EventService {
                     || eventRequestDTO.location() == null || eventRequestDTO.location().length() > 100)
                 throw EventException.DataTooLarge();
 
-            if (!LocalTime.of(endHour, endMinute).isAfter(LocalTime.of(startHour, startMinute)))
-                throw EventException.TimeNotRight();
-
+            LocalDate.of(year, month, day);
             dateAndTime[0] = year;
             dateAndTime[1] = month;
             dateAndTime[2] = day;
-            dateAndTime[3] = startHour;
-            dateAndTime[4] = startMinute;
-            dateAndTime[5] = endHour;
-            dateAndTime[6] = endMinute;
+            if (!eventRequestDTO.allDay()) {
+                String[] startTime = eventRequestDTO.startTime().split(":");
+                int startHour = Integer.parseInt(startTime[0]);
+                int startMinute = Integer.parseInt(startTime[1]);
+
+                String[] endTime = eventRequestDTO.endTime().split(":");
+                int endHour = Integer.parseInt(endTime[0]);
+                int endMinute = Integer.parseInt(endTime[1]);
+
+                if (!LocalTime.of(endHour, endMinute).isAfter(LocalTime.of(startHour, startMinute)))
+                    throw EventException.TimeNotRight();
+                dateAndTime[3] = startHour;
+                dateAndTime[4] = startMinute;
+                dateAndTime[5] = endHour;
+                dateAndTime[6] = endMinute;
+            }
+            EventCategory.valueOf(eventRequestDTO.eventCategory());
 
         } catch (EventException e) {
             throw e;
@@ -163,8 +164,9 @@ public class EventService {
         event.setDescription(eventRequestDTO.description());
         event.setLocation(eventRequestDTO.location());
         event.setDate(LocalDate.of(year, month, day));
-        event.setStartTime(LocalTime.of(startHour, startMinute));
-        event.setEndTime(LocalTime.of(endHour, endMinute));
+        event.setAllDay(eventRequestDTO.allDay());
+        event.setStartTime(eventRequestDTO.allDay() ? null : LocalTime.of(startHour, startMinute));
+        event.setEndTime(eventRequestDTO.allDay() ? null : LocalTime.of(endHour, endMinute));
         event.setEventCategory(EventCategory.valueOf(eventRequestDTO.eventCategory()));
 
         return event;
