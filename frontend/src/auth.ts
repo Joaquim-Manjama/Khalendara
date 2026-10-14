@@ -25,7 +25,7 @@ function readCachedUser(): UserProfile | null {
 async function request(path: string, options: RequestInit = {}) {
   let response: Response
   try {
-    response = await fetch(`${BACKEND_URL}${path}`, { ...options, credentials: 'include', signal: AbortSignal.timeout(15000) })
+    response = await fetch(`${BACKEND_URL}${path}`, { ...options, credentials: 'include', signal: options.signal ?? AbortSignal.timeout(15000) })
   } catch { throw new Error('Unable to reach the server. Please try again shortly.') }
   if (!response.ok) {
     const body = await response.text()
@@ -141,5 +141,27 @@ export async function updateCalendarEvent(userId: string, eventId: string, paylo
     throw new Error('The server returned an unexpected event response. Refresh your calendar before retrying.')
   }
   cacheCreatedEvent(userId, data)
+  return data
+}
+
+export async function importCalendarEvents(userId: string, calendarUrl: string, category: string): Promise<EventDTO[]> {
+  const url = calendarUrl.trim().replace(/^webcal:\/\//i, 'https://')
+  let parsed: URL
+  try { parsed = new URL(url) } catch { throw new Error('Enter a valid calendar URL.') }
+  if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Use an HTTP or HTTPS calendar URL.')
+  if (parsed.username || parsed.password) throw new Error('Use a calendar URL without a username or password in it.')
+  if (!['PERSONAL', 'WORK', 'FAMILY', 'HEALTH', 'SOCIAL', 'FITNESS'].includes(category)) {
+    throw new Error('Choose a valid category.')
+  }
+  // A failed import can still have saved some events. Never retain a stale list.
+  try { sessionStorage.removeItem(eventCacheKey(userId)) } catch { /* Storage may be unavailable. */ }
+  const response = await request('/events/imports/ics/', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url, category }), signal: AbortSignal.timeout(60000),
+  })
+  const data: unknown = await response.json().catch(() => null)
+  if (!Array.isArray(data) || !data.every(isEventDTO)) {
+    throw new Error('The server returned an unexpected import response. Refresh your calendar before retrying.')
+  }
   return data
 }

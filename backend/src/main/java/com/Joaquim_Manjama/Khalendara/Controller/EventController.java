@@ -2,8 +2,11 @@ package com.Joaquim_Manjama.Khalendara.Controller;
 
 import com.Joaquim_Manjama.Khalendara.DTO.EventDTO;
 import com.Joaquim_Manjama.Khalendara.DTO.EventRequestDTO;
+import com.Joaquim_Manjama.Khalendara.DTO.ICalendarImportDTO;
 import com.Joaquim_Manjama.Khalendara.DTO.UserDTO;
 import com.Joaquim_Manjama.Khalendara.Service.EventService;
+import com.Joaquim_Manjama.Khalendara.Service.ICalendarImportService;
+import com.Joaquim_Manjama.Khalendara.Utils.ICalendarParser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,6 +20,9 @@ public class EventController {
 
     @Autowired
     private EventService eventService;
+
+    @Autowired
+    private ICalendarImportService ICalendarImportService;
 
     @PostMapping()
     public ResponseEntity<?> createEvent(@AuthenticationPrincipal UserDTO userDTO, @RequestBody EventRequestDTO eventRequestDTO) {
@@ -40,5 +46,11 @@ public class EventController {
     public ResponseEntity<?> updateEvent(@AuthenticationPrincipal UserDTO userDTO, @PathVariable String id, @RequestBody EventRequestDTO eventRequestDTO) {
         EventDTO event = eventService.updateEvent(userDTO, id, eventRequestDTO);
         return ResponseEntity.ok(event);
+    }
+
+    @PostMapping("/imports/ics/")
+    public ResponseEntity<?> importEvents(@AuthenticationPrincipal UserDTO userDTO, @RequestBody ICalendarImportDTO calendarImportDTO) {
+        List<EventDTO> events = ICalendarImportService.importEvents(userDTO, calendarImportDTO);
+        return ResponseEntity.ok(events);
     }
 }

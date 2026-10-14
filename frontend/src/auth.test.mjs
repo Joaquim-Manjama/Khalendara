@@ -5,7 +5,7 @@ import { test, after } from 'node:test'
 import ts from 'typescript'
 const source = await readFile(new URL('./auth.ts', import.meta.url), 'utf8')
 const { outputText } = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext } })
-const { authenticate, getCurrentUser, SessionExpiredError, createCalendarEvent, getCalendarEvents, cacheCreatedEvent, deleteCalendarEvent, updateCalendarEvent } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`)
+const { authenticate, getCurrentUser, SessionExpiredError, createCalendarEvent, getCalendarEvents, cacheCreatedEvent, deleteCalendarEvent, updateCalendarEvent, importCalendarEvents } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`)
 const originalFetch = globalThis.fetch
 after(() => { globalThis.fetch = originalFetch })
 const user = { id: 'user-123', firstName: 'Test', lastName: 'User', email: 'test@example.com' }
@@ -228,4 +228,58 @@ test('all-day events accept null times and preserve their flag on save', async (
   assert.equal(saved.allDay, true)
   assert.equal(saved.startTime, null)
   assert.equal(saved.endTime, null)
+})
+
+test('calendar import sends URL and category as JSON and invalidates cached events', async () => {
+  const values = new Map()
+  globalThis.sessionStorage = {
+    getItem: key => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: key => values.delete(key),
+  }
+  const saved = { id: 'import-1', title: 'Lecture', description: '', location: 'Campus', date: '2026-10-15', startTime: '12:00', endTime: '13:00', eventCategory: 'WORK' }
+  const url = 'https://example.com/calendar.ics?token=a/b&group=Year%202#calendar'
+  try {
+    globalThis.fetch = async () => Response.json([])
+    await getCalendarEvents('import-user')
+    globalThis.fetch = async (path, options) => {
+      assert.equal(path, '/events/imports/ics/')
+      assert.equal(options.method, 'POST')
+      assert.equal(options.headers['Content-Type'], 'application/json')
+      assert.deepEqual(JSON.parse(options.body), { url, category: 'WORK' })
+      assert.equal(options.credentials, 'include')
+      assert.ok(options.signal instanceof AbortSignal)
+      return Response.json([saved])
+    }
+    assert.deepEqual(await importCalendarEvents('import-user', ` ${url} `, 'WORK'), [saved])
+    assert.equal(values.has('khalendara-api-events-v3-import-user'), false)
+    globalThis.fetch = async path => {
+      assert.equal(path, '/events')
+      return Response.json([saved])
+    }
+    assert.deepEqual(await getCalendarEvents('import-user'), [saved])
+  } finally { delete globalThis.sessionStorage }
+})
+
+test('calendar import validates inputs and supports subscription links', async () => {
+  globalThis.fetch = async () => { assert.fail('Invalid input must not send a request') }
+  for (const url of ['invalid', 'file:///calendar.ics', 'https://user:password@example.com/calendar.ics']) {
+    await assert.rejects(importCalendarEvents('import-user', url, 'WORK'))
+  }
+  await assert.rejects(importCalendarEvents('import-user', 'https://example.com/calendar.ics', 'UNKNOWN'))
+  globalThis.fetch = async (path, options) => {
+    assert.equal(path, '/events/imports/ics/')
+    assert.deepEqual(JSON.parse(options.body), { url: 'https://example.com/calendar.ics', category: 'PERSONAL' })
+    return Response.json([])
+  }
+  assert.deepEqual(await importCalendarEvents('import-user', 'webcal://example.com/calendar.ics', 'PERSONAL'), [])
+})
+
+test('calendar import reports backend failures and rejects malformed event lists', async () => {
+  globalThis.fetch = async () => Response.json({ message: 'Import failed' }, { status: 400 })
+  await assert.rejects(importCalendarEvents('import-user', 'https://example.com/calendar.ics', 'WORK'), { message: 'Import failed' })
+  for (const response of [{}, [{ id: 'incomplete' }]]) {
+    globalThis.fetch = async () => Response.json(response)
+    await assert.rejects(importCalendarEvents('import-user', 'https://example.com/calendar.ics', 'WORK'), /unexpected import response/)
+  }
 })

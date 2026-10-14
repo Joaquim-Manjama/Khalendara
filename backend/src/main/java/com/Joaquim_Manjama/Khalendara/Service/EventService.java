@@ -73,7 +73,20 @@ public class EventService {
     public EventDTO createEvent(UserDTO userDTO, EventRequestDTO eventRequestDTO) {
 
         User user = getUser(userDTO);
+
         Event event = convertToEvent(eventRequestDTO);
+
+        List<Event> optionalEvents = eventRepository.findByUserIdAndDate(user.getId(), event.getDate());
+
+
+        if (!optionalEvents.isEmpty()) {
+
+            for (Event existingEvent:  optionalEvents) {
+                if (existingEvent.getStartTime().equals(event.getStartTime()) && existingEvent.getEndTime().equals(event.getEndTime())) {
+                    return null;
+                }
+            }
+        }
 
         event.setUser(user);
         user.getEvents().add(event);
@@ -113,9 +126,9 @@ public class EventService {
             if (eventRequestDTO.title() == null || eventRequestDTO.title().isBlank())
                 throw EventException.MissingTitle();
 
-            if (eventRequestDTO.title().length() > 100
-                    || eventRequestDTO.description() == null || eventRequestDTO.description().length() > 100
-                    || eventRequestDTO.location() == null || eventRequestDTO.location().length() > 100)
+            if (eventRequestDTO.title().length() > 500
+                    || eventRequestDTO.description() == null || eventRequestDTO.description().length() > 500
+                    || eventRequestDTO.location() == null || eventRequestDTO.location().length() > 500)
                 throw EventException.DataTooLarge();
 
             LocalDate.of(year, month, day);

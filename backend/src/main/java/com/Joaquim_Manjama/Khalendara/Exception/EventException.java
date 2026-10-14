@@ -17,7 +17,7 @@ public class EventException extends RuntimeException {
     }
 
     public static EventException DataTooLarge() {
-        return new EventException(HttpStatus.BAD_REQUEST, "Title, description and location must be at most 100 characters.");
+        return new EventException(HttpStatus.BAD_REQUEST, "Title, description and location must be at most 500 characters.");
     }
 
     public static EventException MissingTitle() {
@@ -30,5 +30,13 @@ public class EventException extends RuntimeException {
 
     public static EventException EventNotFound() {
         return new EventException(HttpStatus.NOT_FOUND, "Event not found.");
+    }
+
+    public static EventException EventImportFailed() {
+        return new EventException(HttpStatus.INTERNAL_SERVER_ERROR, "Event import failed.");
+    }
+
+    public static EventException TooManyEvents() {
+        return new EventException(HttpStatus.CONTENT_TOO_LARGE, "Can only import 50 events at once!");
     }
 }

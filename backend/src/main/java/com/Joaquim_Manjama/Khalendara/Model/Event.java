@@ -22,13 +22,13 @@ public class Event {
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
-    @Column(nullable = false, length=100)
+    @Column(nullable = false, length=500)
     private String title;
 
-    @Column(nullable = false, length=100)
+    @Column(nullable = false, length=500)
     private String description;
 
-    @Column(nullable = false, length=100)
+    @Column(nullable = false, length=500)
     private String location;
 
     private LocalDate date;
